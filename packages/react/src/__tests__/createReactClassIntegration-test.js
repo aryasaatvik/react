@@ -10,21 +10,20 @@
 'use strict';
 
 let act;
+let assertConsoleErrorDev;
 
 let PropTypes;
 let React;
 let ReactDOMClient;
-let ReactTestUtils;
 let createReactClass;
 
 describe('create-react-class-integration', () => {
   beforeEach(() => {
     jest.resetModules();
-    ({act} = require('internal-test-utils'));
+    ({act, assertConsoleErrorDev} = require('internal-test-utils'));
     PropTypes = require('prop-types');
     React = require('react');
     ReactDOMClient = require('react-dom/client');
-    ReactTestUtils = require('react-dom/test-utils');
     createReactClass = require('create-react-class/factory')(
       React.Component,
       React.isValidElement,
@@ -35,9 +34,7 @@ describe('create-react-class-integration', () => {
   it('should throw when `render` is not specified', () => {
     expect(function () {
       createReactClass({});
-    }).toThrowError(
-      'createClass(...): Class specification must implement a `render` method.',
-    );
+    }).toThrowError('Class specification must implement a `render` method.');
   });
 
   it('should copy prop types onto the Constructor', () => {
@@ -67,7 +64,7 @@ describe('create-react-class-integration', () => {
         },
       }),
     ).toErrorDev(
-      'Warning: Component: prop type `prop` is invalid; ' +
+      'Component: prop type `prop` is invalid; ' +
         'it must be a function, usually from React.PropTypes.',
       {withoutStack: true},
     );
@@ -85,7 +82,7 @@ describe('create-react-class-integration', () => {
         },
       }),
     ).toErrorDev(
-      'Warning: Component: context type `prop` is invalid; ' +
+      'Component: context type `prop` is invalid; ' +
         'it must be a function, usually from React.PropTypes.',
       {withoutStack: true},
     );
@@ -103,7 +100,7 @@ describe('create-react-class-integration', () => {
         },
       }),
     ).toErrorDev(
-      'Warning: Component: child context type `prop` is invalid; ' +
+      'Component: child context type `prop` is invalid; ' +
         'it must be a function, usually from React.PropTypes.',
       {withoutStack: true},
     );
@@ -120,7 +117,7 @@ describe('create-react-class-integration', () => {
         },
       }),
     ).toErrorDev(
-      'Warning: A component has a method called componentShouldUpdate(). Did you ' +
+      'A component has a method called componentShouldUpdate(). Did you ' +
         'mean shouldComponentUpdate()? The name is phrased as a question ' +
         'because the function is expected to return a value.',
       {withoutStack: true},
@@ -137,7 +134,7 @@ describe('create-react-class-integration', () => {
         },
       }),
     ).toErrorDev(
-      'Warning: NamedComponent has a method called componentShouldUpdate(). Did you ' +
+      'NamedComponent has a method called componentShouldUpdate(). Did you ' +
         'mean shouldComponentUpdate()? The name is phrased as a question ' +
         'because the function is expected to return a value.',
       {withoutStack: true},
@@ -155,7 +152,7 @@ describe('create-react-class-integration', () => {
         },
       }),
     ).toErrorDev(
-      'Warning: A component has a method called componentWillRecieveProps(). Did you ' +
+      'A component has a method called componentWillRecieveProps(). Did you ' +
         'mean componentWillReceiveProps()?',
       {withoutStack: true},
     );
@@ -172,7 +169,7 @@ describe('create-react-class-integration', () => {
         },
       }),
     ).toErrorDev(
-      'Warning: A component has a method called UNSAFE_componentWillRecieveProps(). ' +
+      'A component has a method called UNSAFE_componentWillRecieveProps(). ' +
         'Did you mean UNSAFE_componentWillReceiveProps()?',
       {withoutStack: true},
     );
@@ -202,7 +199,8 @@ describe('create-react-class-integration', () => {
   });
 
   // TODO: Consider actually moving these to statics or drop this unit test.
-  xit('should warn when using deprecated non-static spec keys', () => {
+  // eslint-disable-next-line jest/no-disabled-tests
+  it.skip('should warn when using deprecated non-static spec keys', () => {
     expect(() =>
       createReactClass({
         mixins: [{}],
@@ -220,18 +218,18 @@ describe('create-react-class-integration', () => {
         },
       }),
     ).toErrorDev([
-      'createClass(...): `mixins` is now a static property and should ' +
+      '`mixins` is now a static property and should ' +
         'be defined inside "statics".',
-      'createClass(...): `propTypes` is now a static property and should ' +
+      '`propTypes` is now a static property and should ' +
         'be defined inside "statics".',
-      'createClass(...): `contextTypes` is now a static property and ' +
+      '`contextTypes` is now a static property and ' +
         'should be defined inside "statics".',
-      'createClass(...): `childContextTypes` is now a static property and ' +
+      '`childContextTypes` is now a static property and ' +
         'should be defined inside "statics".',
     ]);
   });
 
-  it('should support statics', () => {
+  it('should support statics', async () => {
     const Component = createReactClass({
       statics: {
         abc: 'def',
@@ -247,8 +245,13 @@ describe('create-react-class-integration', () => {
         return <span />;
       },
     });
-    let instance = <Component />;
-    instance = ReactTestUtils.renderIntoDocument(instance);
+    const container = document.createElement('div');
+    const root = ReactDOMClient.createRoot(container);
+    let instance;
+    await act(() => {
+      root.render(<Component ref={current => (instance = current)} />);
+    });
+
     expect(instance.constructor.abc).toBe('def');
     expect(Component.abc).toBe('def');
     expect(instance.constructor.def).toBe(0);
@@ -261,7 +264,7 @@ describe('create-react-class-integration', () => {
     expect(Component.pqr()).toBe(Component);
   });
 
-  it('should work with object getInitialState() return values', () => {
+  it('should work with object getInitialState() return values', async () => {
     const Component = createReactClass({
       getInitialState: function () {
         return {
@@ -272,12 +275,17 @@ describe('create-react-class-integration', () => {
         return <span />;
       },
     });
-    let instance = <Component />;
-    instance = ReactTestUtils.renderIntoDocument(instance);
+    const container = document.createElement('div');
+    const root = ReactDOMClient.createRoot(container);
+    let instance;
+    await act(() => {
+      root.render(<Component ref={current => (instance = current)} />);
+    });
+
     expect(instance.state.occupation).toEqual('clown');
   });
 
-  it('should work with getDerivedStateFromProps() return values', () => {
+  it('should work with getDerivedStateFromProps() return values', async () => {
     const Component = createReactClass({
       getInitialState() {
         return {};
@@ -289,8 +297,12 @@ describe('create-react-class-integration', () => {
     Component.getDerivedStateFromProps = () => {
       return {occupation: 'clown'};
     };
-    let instance = <Component />;
-    instance = ReactTestUtils.renderIntoDocument(instance);
+    let instance;
+    const container = document.createElement('div');
+    const root = ReactDOMClient.createRoot(container);
+    await act(() => {
+      root.render(<Component ref={current => (instance = current)} />);
+    });
     expect(instance.state.occupation).toEqual('clown');
   });
 
@@ -325,11 +337,16 @@ describe('create-react-class-integration', () => {
     await act(() => {
       root.render(<Outer />);
     });
+    assertConsoleErrorDev([
+      'Component uses the legacy childContextTypes API which will soon be removed. Use React.createContext() instead.',
+      'Component uses the legacy contextTypes API which will soon be removed. Use React.createContext() with static contextType instead.',
+    ]);
     expect(container.firstChild.className).toBe('foo');
   });
 
-  it('should throw with non-object getInitialState() return values', () => {
-    [['an array'], 'a string', 1234].forEach(function (state) {
+  it('should throw with non-object getInitialState() return values', async () => {
+    // eslint-disable-next-line no-for-of-loops/no-for-of-loops
+    for (const state of [['an array'], 'a string', 1234]) {
       const Component = createReactClass({
         getInitialState: function () {
           return state;
@@ -338,16 +355,19 @@ describe('create-react-class-integration', () => {
           return <span />;
         },
       });
-      let instance = <Component />;
-      expect(function () {
-        instance = ReactTestUtils.renderIntoDocument(instance);
-      }).toThrowError(
+      const container = document.createElement('div');
+      const root = ReactDOMClient.createRoot(container);
+      await expect(
+        act(() => {
+          root.render(<Component />);
+        }),
+      ).rejects.toThrowError(
         'Component.getInitialState(): must return an object or null',
       );
-    });
+    }
   });
 
-  it('should work with a null getInitialState() return value', () => {
+  it('should work with a null getInitialState() return value', async () => {
     const Component = createReactClass({
       getInitialState: function () {
         return null;
@@ -356,9 +376,13 @@ describe('create-react-class-integration', () => {
         return <span />;
       },
     });
-    expect(() =>
-      ReactTestUtils.renderIntoDocument(<Component />),
-    ).not.toThrow();
+    const container = document.createElement('div');
+    const root = ReactDOMClient.createRoot(container);
+    await expect(
+      act(() => {
+        root.render(<Component />);
+      }),
+    ).resolves.not.toThrow();
   });
 
   it('should throw when using legacy factories', () => {
@@ -369,13 +393,13 @@ describe('create-react-class-integration', () => {
     });
 
     expect(() => expect(() => Component()).toThrow()).toErrorDev(
-      'Warning: Something is calling a React component directly. Use a ' +
+      'Something is calling a React component directly. Use a ' +
         'factory or JSX instead. See: https://fb.me/react-legacyfactory',
       {withoutStack: true},
     );
   });
 
-  it('replaceState and callback works', () => {
+  it('replaceState and callback works', async () => {
     const ops = [];
     const Component = createReactClass({
       getInitialState() {
@@ -387,10 +411,19 @@ describe('create-react-class-integration', () => {
       },
     });
 
-    const instance = ReactTestUtils.renderIntoDocument(<Component />);
-    instance.replaceState({step: 1}, () => {
-      ops.push('Callback: ' + instance.state.step);
+    const container = document.createElement('div');
+    const root = ReactDOMClient.createRoot(container);
+    let instance;
+    await act(() => {
+      root.render(<Component ref={current => (instance = current)} />);
     });
+
+    await act(() => {
+      instance.replaceState({step: 1}, () => {
+        ops.push('Callback: ' + instance.state.step);
+      });
+    });
+
     expect(ops).toEqual(['Render: 0', 'Render: 1', 'Callback: 1']);
   });
 
@@ -567,6 +600,7 @@ describe('create-react-class-integration', () => {
         return null;
       },
     });
+    Component.displayName = 'Component';
 
     await expect(async () => {
       await expect(async () => {
@@ -581,7 +615,7 @@ describe('create-react-class-integration', () => {
           '  componentWillReceiveProps\n' +
           '  componentWillUpdate\n\n' +
           'The above lifecycles should be removed. Learn more about this warning here:\n' +
-          'https://reactjs.org/link/unsafe-component-lifecycles',
+          'https://react.dev/link/unsafe-component-lifecycles',
       );
     }).toWarnDev(
       [
@@ -616,6 +650,7 @@ describe('create-react-class-integration', () => {
         return null;
       },
     });
+    Component.displayName = 'Component';
 
     await expect(async () => {
       await expect(async () => {
@@ -630,7 +665,7 @@ describe('create-react-class-integration', () => {
           '  componentWillReceiveProps\n' +
           '  componentWillUpdate\n\n' +
           'The above lifecycles should be removed. Learn more about this warning here:\n' +
-          'https://reactjs.org/link/unsafe-component-lifecycles',
+          'https://react.dev/link/unsafe-component-lifecycles',
       );
     }).toWarnDev(
       [
@@ -766,10 +801,10 @@ describe('create-react-class-integration', () => {
         root.render(<Component />);
       });
     }).toErrorDev(
-      'Warning: MyComponent: isMounted is deprecated. Instead, make sure to ' +
+      'MyComponent: isMounted is deprecated. Instead, make sure to ' +
         'clean up subscriptions and pending requests in componentWillUnmount ' +
         'to prevent memory leaks.',
-      {withoutStack: true},
+      // This now has a component stack even though it's part of a third-party library.
     );
 
     // Dedupe
